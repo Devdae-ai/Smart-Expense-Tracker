@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Smart Expense Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+:root {
+  --navy-900:#071330;
+  --navy-700:#0f2a57;
+  --navy-500:#1e3a8a;
+  --accent:#3b82f6;
+  --glass: rgba(255,255,255,0.06);
+  --card:#f8fafc;
+  --muted:#94a3b8;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+html,body{height:100%;scroll-behavior:smooth;}
+body{
+  background: linear-gradient(180deg,var(--navy-900),var(--navy-700));
+  color:#fff;min-height:100vh;overflow-x:hidden;
+}
+.hero{
+  height:44vh;min-height:260px;position:relative;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:28px 20px;overflow:hidden;
+}
+.hero .bg{
+  position:absolute;inset:0;
+  background-image:url('https://images.unsplash.com/photo-1605902711622-cfb43c4437d6?auto=format&fit=crop&w=1600&q=80');
+  background-size:cover;background-position:center;
+  filter:brightness(.28) saturate(.9);
+}
+.hero h1{position:relative;font-size:clamp(22px,5vw,36px);line-height:1.05;margin-bottom:10px;font-weight:700}
+.hero p{position:relative;color:#c7dbff;max-width:700px;font-size:15px}
+.app{
+  width:90%;max-width:420px;margin:-40px auto 90px;
+  background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01));
+  border-radius:24px;padding:16px;
+  box-shadow:0 30px 60px rgba(3,10,26,0.45);
+  position:relative;z-index:6;
+}
+header.app-top{
+  display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:12px;
+}
+@media(min-width:480px){
+  header.app-top{flex-direction:row;align-items:center;justify-content:space-between;}
+}
+.greeting{font-size:18px;font-weight:700;color:#dfeeff}
+.balance-card{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:linear-gradient(135deg,var(--navy-500),#2956b7);
+  padding:14px;border-radius:14px;color:#fff;
+  box-shadow:0 8px 20px rgba(6,18,40,0.35);
+  width:100%;
+}
+.balance-card .left p{font-size:12px;color:rgba(255,255,255,0.85);margin-bottom:6px}
+.balance-card .left h2{font-size:20px;margin:0}
+.add-btn{
+  background:#fff;color:var(--navy-700);
+  border-radius:12px;padding:8px 12px;border:none;font-weight:700;cursor:pointer;
+  box-shadow:0 6px 14px rgba(2,6,28,0.25);
+  transition:transform .14s ease, box-shadow .14s ease;
+}
+.add-btn:active{transform:scale(.96)}
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
+.card{background:var(--glass);padding:12px;border-radius:12px;}
+.tracker-form{display:flex;flex-direction:column;gap:8px}
+.tracker-form .row{display:flex;gap:8px;flex-wrap:wrap}
+.tracker-form input, .tracker-form select{
+  appearance:none;border:none;padding:12px 10px;border-radius:10px;
+  background:#fff;color:#000;flex:1;font-size:16px; /* prevents zoom on iOS */
+}
+.tracker-actions{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap}
+.btn{
+  flex:1;padding:12px;border-radius:12px;border:none;font-weight:600;cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.btn:active{transform:scale(.97)}
+.btn.add{background:var(--accent);color:white;box-shadow:0 10px 20px rgba(59,130,246,0.12)}
+.btn.extract{background:#ff6b6b;color:white;box-shadow:0 10px 20px rgba(255,107,107,0.12)}
+.btn.clear{background:#64748b;color:white;box-shadow:0 10px 20px rgba(100,116,139,0.12)}
+.expense-list{
+  max-height:240px;overflow:auto;margin-top:8px;
+  display:flex;flex-direction:column;gap:8px;padding-right:6px;
+}
+.expense-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px;border-radius:10px;background:rgba(255,255,255,0.03);
+}
+.chart-wrap{display:flex;flex-direction:column;align-items:center;padding:6px}
+canvas{width:100%!important;height:220px!important;border-radius:12px;background:transparent}
+</style>
+</head>
+
+<body>
+<div class="hero">
+  <div class="bg"></div>
+  <div>
+    <h1>Manage Your Finances Simply</h1>
+    <p>Track, analyze, and control your expenses in one elegant dashboard.</p>
+  </div>
+</div>
+
+<main class="app">
+  <header class="app-top">
+    <div>
+      <div class="greeting">Hello! </div>
+      <div class="muted">Welcome back 👋</div>
+    </div>
+    <div class="balance-card">
+      <div class="left">
+        <p>Current Balance</p>
+        <h2 id="balanceValue">₱0.00</h2>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 class="section-title">Quick Tracker</h3>
+        <div class="muted">Add / Extract • by category</div>
+      </div>
+
+      <form id="trackerForm" class="tracker-form" onsubmit="return false;">
+        <div class="row">
+          <input id="txName" type="text" placeholder="Title (e.g., Rent, Grocery)" />
+        </div>
+        <div class="row">
+          <select id="txCategory">
+            <option value="" disabled selected>Choose category</option>
+            <option>Housing (Rent/Mortgage)</option>
+            <option>Utilities</option>
+            <option>Transportation</option>
+            <option>Food</option>
+            <option>Healthcare</option>
+            <option>Personal Care</option>
+            <option>Debt Payments</option>
+            <option>Entertainment</option>
+            <option>Insurance</option>
+            <option>Savings & Investments</option>
+            <option>Operating Expenses</option>
+            <option>Payroll</option>
+            <option>Marketing</option>
+            <option>Taxes</option>
+            <option>Allowance</option>
+            <option>Salary Income</option>
+          </select>
+          <input id="txAmount" type="number" step="0.01" placeholder="Amount" />
+        </div>
+        <div class="row">
+          <input id="txDate" type="date" />
+          <select id="txType">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </div>
+        <div class="tracker-actions">
+          <button type="button" class="btn add" id="btnAdd">Add</button>
+          <button type="button" class="btn extract" id="btnExtract">Extract</button>
+          <button type="button" class="btn clear" id="btnClear">Clear All</button>
+        </div>
+      </form>
+
+      <div class="expense-list" id="expenseList"></div>
+    </div>
+
+    <div class="card chart-wrap">
+      <h3 class="section-title">Expenses by Category</h3>
+      <div class="muted" id="totalLabel">Total: ₱0.00</div>
+      <canvas id="expenseChart"></canvas>
+    </div>
+
+    <div class="card chart-wrap">
+      <h3 class="section-title">Income by Category</h3>
+      <div class="muted" id="incomeTotalLabel">Total: ₱0.00</div>
+      <canvas id="incomeChart"></canvas>
+    </div>
+  </div>
+</main>
+
+<script>
+const categoryColors={
+ "Housing (Rent/Mortgage)":"#1e3a8a","Utilities":"#3b82f6","Transportation":"#06b6d4",
+ "Food":"#f59e0b","Healthcare":"#ef4444","Personal Care":"#ec4899",
+ "Debt Payments":"#a855f7","Entertainment":"#10b981","Insurance":"#f97316",
+ "Savings & Investments":"#22c55e","Operating Expenses":"#6366f1",
+ "Payroll":"#0891b2","Marketing":"#84cc16","Taxes":"#e11d48",
+ "Allowance":"#14b8a6","Salary Income":"#4ade80"
+};
+let ledger=[];
+const $expenseList=document.getElementById("expenseList");
+const $balance=document.getElementById("balanceValue");
+const $totalLabel=document.getElementById("totalLabel");
+const $incomeTotalLabel=document.getElementById("incomeTotalLabel");
+
+const expenseChart=new Chart(document.getElementById('expenseChart'),{
+ type:'doughnut',
+ data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0}]},
+ options:{responsive:true,maintainAspectRatio:false,cutout:'64%',
+ plugins:{legend:{position:'bottom',labels:{color:'#cfe6ff',boxWidth:12,padding:12}},
+ tooltip:{callbacks:{label:(ctx)=>{
+   let total=ctx.dataset.data.reduce((a,b)=>a+b,0);
+   let pct=((ctx.parsed/total)*100).toFixed(1);
+   return `${ctx.label}: ₱${ctx.parsed.toFixed(2)} (${pct}%)`;
+ }}}}}
+});
+
+const incomeChart=new Chart(document.getElementById('incomeChart'),{
+ type:'pie',
+ data:{labels:[],datasets:[{data:[],backgroundColor:[],borderWidth:0}]},
+ options:{responsive:true,maintainAspectRatio:false,
+ plugins:{legend:{position:'bottom',labels:{color:'#cfe6ff',boxWidth:12,padding:12}},
+ tooltip:{callbacks:{label:(ctx)=>{
+   let total=ctx.dataset.data.reduce((a,b)=>a+b,0);
+   let pct=((ctx.parsed/total)*100).toFixed(1);
+   return `${ctx.label}: ₱${ctx.parsed.toFixed(2)} (${pct}%)`;
+ }}}}}
+});
+
+function uid(){return Math.random().toString(36).slice(2,9);}
+function formatMoney(n){return '₱'+Number(n||0).toFixed(2);}
+function computeSums(){
+ let balance=0;const expenseSums={},incomeSums={};
+ for(const e of ledger){
+   if(e.type==='income'){balance+=e.amount;incomeSums[e.category]=(incomeSums[e.category]||0)+e.amount;}
+   else{balance-=e.amount;expenseSums[e.category]=(expenseSums[e.category]||0)+e.amount;}
+ }
+ return {balance,expenseSums,incomeSums};
+}
+
+function renderLedger(){
+ $expenseList.innerHTML='';
+ const rows=ledger.slice().reverse();
+ for(const e of rows){
+   const div=document.createElement('div');
+   div.className='expense-row';
+   div.style.borderLeft=`4px solid ${categoryColors[e.category]||'#64748b'}`;
+   div.innerHTML=`
+     <div>
+       <strong>${e.name}</strong><br>
+       <small>${e.category} • ${e.date}</small>
+     </div>
+     <div style="text-align:right">
+       <div style="color:${e.type==='expense'?'#ffd6d6':'#b8ffda'}">
+         ${e.type==='expense'?'-': '+'}${formatMoney(e.amount)}
+       </div>
+       <button onclick="removeEntry('${e.id}')" style="background:none;border:none;color:#9fc6ff;font-size:11px;cursor:pointer">Delete</button>
+     </div>`;
+   $expenseList.appendChild(div);
+ }
+ updateCharts();
+}
+
+function updateCharts(){
+ const {balance,expenseSums,incomeSums}=computeSums();
+ const eLabels=Object.keys(expenseSums);
+ const eData=eLabels.map(l=>expenseSums[l]);
+ const eColors=eLabels.map(l=>categoryColors[l]||'#64748b');
+ expenseChart.data.labels=eLabels;
+ expenseChart.data.datasets[0].data=eData;
+ expenseChart.data.datasets[0].backgroundColor=eColors;
+ expenseChart.update();
+
+ const iLabels=Object.keys(incomeSums);
+ const iData=iLabels.map(l=>incomeSums[l]);
+ const iColors=iLabels.map(l=>categoryColors[l]||'#84cc16');
+ incomeChart.data.labels=iLabels;
+ incomeChart.data.datasets[0].data=iData;
+ incomeChart.data.datasets[0].backgroundColor=iColors;
+ incomeChart.update();
+
+ const incomeTotal=Object.values(incomeSums).reduce((a,b)=>a+b||0,0);
+ const expenseTotal=Object.values(expenseSums).reduce((a,b)=>a+b||0,0);
+ $incomeTotalLabel.textContent=`Total: ${formatMoney(incomeTotal)}`;
+ $totalLabel.textContent=`Total: ${formatMoney(expenseTotal)}`;
+ $balance.textContent=formatMoney(balance);
+}
+
+document.getElementById('btnAdd').addEventListener('click',()=>{
+ const name=document.getElementById('txName').value.trim()||'No title';
+ const category=document.getElementById('txCategory').value;
+ const amount=parseFloat(document.getElementById('txAmount').value);
+ const date=document.getElementById('txDate').value||new Date().toISOString().slice(0,10);
+ const type=document.getElementById('txType').value;
+ if(!category||isNaN(amount)||amount<=0)return alert('Enter valid data.');
+ ledger.push({id:uid(),name,category,type,amount,date});
+ document.getElementById('txName').value='';
+ document.getElementById('txAmount').value='';
+ renderLedger();
+});
+
+document.getElementById('btnExtract').addEventListener('click',()=>{
+ const category=document.getElementById('txCategory').value;
+ const amount=parseFloat(document.getElementById('txAmount').value);
+ const date=document.getElementById('txDate').value||new Date().toISOString().slice(0,10);
+ if(!category||isNaN(amount)||amount<=0)return alert('Enter valid data.');
+ // fixed: explicitly set type to 'expense'
+ ledger.push({id:uid(),name:'Manual Extraction',category,type:'expense',amount,date});
+ document.getElementById('txAmount').value='';
+ renderLedger();
+});
+
+document.getElementById('btnClear').addEventListener('click',()=>{
+ if(confirm("Are you sure you want to clear all data?")){
+   ledger=[];renderLedger();
+ }
+});
+
+function removeEntry(id){ledger=ledger.filter(x=>x.id!==id);renderLedger();}
+renderLedger();
+</script>
+</body>
+</html>
